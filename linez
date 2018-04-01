@@ -1,0 +1,211 @@
+#!/usr/bin/env python
+
+import sys
+import argparse
+import shutil
+import os
+import atexit
+
+def line(percentage, maxlength, mode):
+    value = maxlength * min(1.0, percentage)
+    full = int(value)
+    reminder = value - full
+
+    full_string = '\u2588' * full
+    remid = round(reminder * 8)
+
+    if mode == 'h':
+        reminder_string = ['', '\u258F', '\u258E', '\u258D', '\u258C', '\u258B', '\u258A', '\u2589', '\u2588'][remid]
+        fill = ' ' * (maxlength - len(full_string) - len(reminder_string))
+        return full_string + reminder_string + fill
+    
+    if mode == 'v':
+        reminder_string = ['', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'][remid]
+        fill = ' ' * (maxlength - len(full_string) - len(reminder_string))
+        return fill + reminder_string + full_string
+
+    raise Exception()
+
+def colorize(line, mode, colors):
+    color_codes = {
+        'black'   : '\033[0;%dm' % 30,
+        'red'     : '\033[0;%dm' % 31,
+        'green'   : '\033[0;%dm' % 32,
+        'yellow'  : '\033[0;%dm' % 33,
+        'blue'    : '\033[0;%dm' % 34,
+        'magenta' : '\033[0;%dm' % 35,
+        'cyan'    : '\033[0;%dm' % 36,
+        'lgray'   : '\033[0;%dm' % 37,
+        'default' : '\033[0;%dm' % 39,
+
+        'dgray'   : '\033[0;%dm' % 90,
+        'lred'    : '\033[0;%dm' % 91,
+        'lgreen'  : '\033[0;%dm' % 92,
+        'lyellow' : '\033[0;%dm' % 93,
+        'lblue'   : '\033[0;%dm' % 94,
+        'lmagenta': '\033[0;%dm' % 95,
+        'lcyan'   : '\033[0;%dm' % 96,
+        'white'   : '\033[0;%dm' % 97,
+    }
+
+    reset_color = '\033[0m'
+
+    result = []
+    iterated = enumerate(line if mode == 'h' else reversed(line))
+    for i, c in iterated:
+        char = []
+        p = i / len(line)
+        for pair in colors:
+            color, value = pair
+            if p < value:
+                char.append(color_codes[color])
+                break
+
+        char.append(c)
+        char.append(reset_color)
+
+        result.append(''.join(char))
+
+    return result if mode == 'h' else list(reversed(result))
+
+def makeline(percentage, maxlength, mode, colors):
+    l = line(percentage, maxlength, mode)
+    c = colorize(l, mode, colors)
+
+    return c
+
+def drawlines(lines, mode, linewidth, sepwidth, values, print_values, header):
+    if len(lines) == 0: return
+    
+    if mode == 'h':
+        text = '\n' * sepwidth + header + '\n' * (sepwidth + 1)
+        rows = []
+        for i, line in enumerate(lines):
+            row = ''
+            for _ in range(linewidth):
+                if print_values:
+                    if _ == 0:
+                        row += '%6.1f ' % values[i]
+                    else:
+                        row += ' ' * 7
+
+                row += ''.join(line) + '\n'
+
+            rows.append(row)
+
+        text += ('\n' * sepwidth).join(rows)
+
+        sys.stdout.write(text)
+        sys.stdout.flush()
+
+        height = (linewidth + (sepwidth + 2)) * len(lines) + 1
+
+        sys.stdout.write('\033[%dA' % height)
+    elif mode == 'v':
+        length = len(lines[0])
+
+        rows = []
+        for i in range(length):
+            row = ''
+            for line in lines:
+                row += ' ' * sepwidth + line[i] * linewidth
+
+            rows.append(row)
+
+        text = '\n' * (sepwidth + 1) + '\n'.join(rows)
+
+        sys.stdout.write(text)
+        sys.stdout.flush()
+
+        height = length
+    
+        sys.stdout.write('\033[%dA' % height)
+    else:
+        raise Exception()
+
+def get_values(linecount, scale, cut):
+    return [(float(sys.stdin.readline()) - cut) / scale for _ in range(linecount)]
+
+def makelines(values, maxlength, mode, colors):
+    return [makeline(value, maxlength, mode, colors) for value in values]
+
+def smooth_values(values1, values2, k):
+    return [v1 * k + v2 * (1 - k) for v1, v2 in zip(values1, values2)]
+
+def parse_colors(text, scale, cut):
+    result = []
+    for color in text.split(','):
+        if ':' not in color:
+            result.append((color, 1.0))
+        else:
+            [color, value] = color.split(':')
+            value = (float(value) - cut) / scale
+            result.append((color, value))
+
+    return result
+
+def centrate(text, width):
+    center = width // 2
+    textcenter = len(text) // 2
+
+    leftpadding = center - textcenter
+    rightpadding = width - leftpadding - len(text)
+
+    return ' ' * leftpadding + text + ' ' * rightpadding
+
+def main():
+    os.system('setterm -cursor off')
+    os.system('clear')
+
+    parser = argparse.ArgumentParser(description='Prints input values as lines.')
+    parser.add_argument('--linecount', '-c', default=1, type=int, help='lines count')
+    parser.add_argument('--maxlength', '-m', default=40, type=int, help='line length')
+    parser.add_argument('--linewidth', '-W', default=1, type=int, help='line width')
+    parser.add_argument('--sepwidth',  '-w', default=1, type=int, help='separator width')
+    parser.add_argument('--mode',      '-M', default='h', type=str, help='v for vertical and h for horizontal mode')
+    parser.add_argument('--scale',     '-s', default=1, type=float, help='divider for input values')
+    parser.add_argument('--cut',       '-C', default=0, type=float, help='subtractor for input values')
+    parser.add_argument('--print',     '-p', action='store_true', help='print value for each line (in horizontal mode only)')
+    parser.add_argument('--auto-linewidth', '-a', action='store_true', help='detecting terminal size to set line length automaticaly')
+
+    parser.add_argument('--header',      '-H', default='linez', type=str, help='print custom header')
+    parser.add_argument('--colors', default='green', type=str, help='one color: green, red, blue, etc., multiple colors: green:0.3,yellow:0.6,red')
+
+    args = parser.parse_args()
+
+    twidth, theight = shutil.get_terminal_size((80, 20))
+    if args.auto_linewidth and args.mode == 'h':
+        args.maxlength = twidth
+        if args.print:
+            args.maxlength -= 7
+
+    args.header = centrate(args.header, twidth)
+
+    if args.auto_linewidth and args.mode == 'v':
+        args.maxlength = theight
+
+    args.scale -= args.cut
+
+    colors = parse_colors(args.colors, args.scale, args.cut)
+
+    old_values = None
+
+    try:
+        while True:
+            values = get_values(args.linecount, args.scale, args.cut)
+            originals = [v * args.scale + args.cut for v in values]
+            if old_values is None: old_values = values
+
+            values = smooth_values(values, old_values, 0.5)
+            lines = makelines(values, args.maxlength, args.mode, colors)
+            drawlines(lines, args.mode, args.linewidth, args.sepwidth, originals, args.print, args.header)
+
+            old_values = values
+    except (ValueError, KeyboardInterrupt):
+        print()
+
+    os.system('setterm -cursor on')
+
+if __name__ == "__main__":
+    main()
+
