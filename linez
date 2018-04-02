@@ -78,7 +78,7 @@ def drawlines(lines, mode, linewidth, sepwidth, values, print_values, header):
     if len(lines) == 0: return
     
     if mode == 'h':
-        text = '\n' * sepwidth + header + '\n' * (sepwidth + 1)
+        text = header + '\n' * (sepwidth)
         rows = []
         for i, line in enumerate(lines):
             row = ''
@@ -98,7 +98,7 @@ def drawlines(lines, mode, linewidth, sepwidth, values, print_values, header):
         sys.stdout.write(text)
         sys.stdout.flush()
 
-        height = (linewidth + (sepwidth + 2)) * len(lines) + 1
+        height = (linewidth + sepwidth) * len(lines) + len(header.split('\n'))
 
         sys.stdout.write('\033[%dA' % height)
     elif mode == 'v':
@@ -153,10 +153,7 @@ def centrate(text, width):
 
     return ' ' * leftpadding + text + ' ' * rightpadding
 
-def main():
-    os.system('setterm -cursor off')
-    os.system('clear')
-
+def parse_arguments():
     parser = argparse.ArgumentParser(description='Prints input values as lines.')
     parser.add_argument('--linecount', '-c', default=1, type=int, help='lines count')
     parser.add_argument('--maxlength', '-m', default=40, type=int, help='line length')
@@ -168,7 +165,7 @@ def main():
     parser.add_argument('--print',     '-p', action='store_true', help='print value for each line (in horizontal mode only)')
     parser.add_argument('--auto-linewidth', '-a', action='store_true', help='detecting terminal size to set line length automaticaly')
 
-    parser.add_argument('--header',      '-H', default='linez', type=str, help='print custom header')
+    parser.add_argument('--header',      '-H', default='', type=str, help='print custom header')
     parser.add_argument('--colors', default='green', type=str, help='one color: green, red, blue, etc., multiple colors: green:0.3,yellow:0.6,red')
 
     args = parser.parse_args()
@@ -179,25 +176,33 @@ def main():
         if args.print:
             args.maxlength -= 7
 
-    args.header = centrate(args.header, twidth)
+    if len(args.header) > 0:
+        args.header = '\n' + centrate(args.header, twidth) + '\n'
 
     if args.auto_linewidth and args.mode == 'v':
         args.maxlength = theight
 
     args.scale -= args.cut
 
-    colors = parse_colors(args.colors, args.scale, args.cut)
+    args.colors = parse_colors(args.colors, args.scale, args.cut)
 
-    old_values = None
+    return args
+
+def main():
+    os.system('setterm -cursor off')
+    os.system('clear')
+
+    args = parse_arguments()
 
     try:
+        old_values = None
         while True:
             values = get_values(args.linecount, args.scale, args.cut)
             originals = [v * args.scale + args.cut for v in values]
             if old_values is None: old_values = values
 
             values = smooth_values(values, old_values, 0.5)
-            lines = makelines(values, args.maxlength, args.mode, colors)
+            lines = makelines(values, args.maxlength, args.mode, args.colors)
             drawlines(lines, args.mode, args.linewidth, args.sepwidth, originals, args.print, args.header)
 
             old_values = values
