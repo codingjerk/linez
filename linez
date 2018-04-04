@@ -166,6 +166,7 @@ def calculate_size(args):
     if args.auto_linewidth and args.mode == 'v':
         args.maxlength = theight
 
+    args.cheader = ''
     if len(args.header) > 0:
         args.cheader = '\n' + centrate(args.header, twidth) + '\n'
 
