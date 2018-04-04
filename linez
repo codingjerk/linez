@@ -98,7 +98,7 @@ def drawlines(lines, mode, linewidth, sepwidth, values, print_values, header):
         sys.stdout.write(text)
         sys.stdout.flush()
 
-        height = (linewidth + sepwidth) * len(lines) + len(header.split('\n'))
+        height = linewidth * len(lines) + sepwidth * (len(lines) - 1) + len(header.split('\n'))
 
         sys.stdout.write('\033[%dA' % height)
     elif mode == 'v':
@@ -153,6 +153,22 @@ def centrate(text, width):
 
     return ' ' * leftpadding + text + ' ' * rightpadding
 
+def get_terminal_size():
+    return shutil.get_terminal_size((80, 20))
+
+def calculate_size(args):
+    twidth, theight = get_terminal_size()
+    if args.auto_linewidth and args.mode == 'h':
+        args.maxlength = twidth
+        if args.print:
+            args.maxlength -= 7
+
+    if args.auto_linewidth and args.mode == 'v':
+        args.maxlength = theight
+
+    if len(args.header) > 0:
+        args.cheader = '\n' + centrate(args.header, twidth) + '\n'
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Prints input values as lines.')
     parser.add_argument('--linecount', '-c', default=1, type=int, help='lines count')
@@ -170,17 +186,7 @@ def parse_arguments():
 
     args = parser.parse_args()
 
-    twidth, theight = shutil.get_terminal_size((80, 20))
-    if args.auto_linewidth and args.mode == 'h':
-        args.maxlength = twidth
-        if args.print:
-            args.maxlength -= 7
-
-    if len(args.header) > 0:
-        args.header = '\n' + centrate(args.header, twidth) + '\n'
-
-    if args.auto_linewidth and args.mode == 'v':
-        args.maxlength = theight
+    calculate_size(args)
 
     args.scale -= args.cut
 
@@ -190,8 +196,16 @@ def parse_arguments():
 
 def process_cycle(args):
     old_values = None
+    old_size = get_terminal_size()
 
     while True:
+        current_size = get_terminal_size()
+        if old_size != current_size:
+            print('\n' * 100)
+            os.system('clear')
+            calculate_size(args)
+            old_size = current_size
+
         values = get_values(args.linecount, args.scale, args.cut)
         originals = [v * args.scale + args.cut for v in values]
         if old_values is None: old_values = values
@@ -199,7 +213,7 @@ def process_cycle(args):
         # TODO: allow to set smoothness with argument
         values = smooth_values(values, old_values, 0.5)
         lines = makelines(values, args.maxlength, args.mode, args.colors)
-        drawlines(lines, args.mode, args.linewidth, args.sepwidth, originals, args.print, args.header)
+        drawlines(lines, args.mode, args.linewidth, args.sepwidth, originals, args.print, args.cheader)
 
         old_values = values
 
