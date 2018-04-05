@@ -5,6 +5,7 @@ import argparse
 import shutil
 import os
 import atexit
+import math
 
 def line(percentage, maxlength, mode):
     value = maxlength * min(1.0, percentage)
@@ -123,8 +124,11 @@ def drawlines(lines, mode, linewidth, sepwidth, values, print_values, header):
     else:
         raise Exception()
 
-def get_values(linecount, scale, cut):
-    return [(float(sys.stdin.readline()) - cut) / scale for _ in range(linecount)]
+def get_values(linecount):
+    return [float(sys.stdin.readline()) for _ in range(linecount)]
+
+def scale_values(values, scale, cut):
+    return [(v - cut) / scale for v in values]
 
 def makelines(values, maxlength, mode, colors):
     return [makeline(value, maxlength, mode, colors) for value in values]
@@ -132,17 +136,15 @@ def makelines(values, maxlength, mode, colors):
 def smooth_values(values1, values2, k):
     return [v1 * k + v2 * (1 - k) for v1, v2 in zip(values1, values2)]
 
-def parse_colors(text, scale, cut):
-    result = []
-    for color in text.split(','):
+def update_colors(args):
+    args.pcolors = []
+    for color in args.colors.split(','):
         if ':' not in color:
-            result.append((color, 1.0))
+            args.pcolors.append((color, 1.0))
         else:
             [color, value] = color.split(':')
-            value = (float(value) - cut) / scale
-            result.append((color, value))
-
-    return result
+            value = (float(value) - args.cut) / args.scale
+            args.pcolors.append((color, value))
 
 def centrate(text, width):
     center = width // 2
@@ -181,6 +183,8 @@ def parse_arguments():
     parser.add_argument('--cut',       '-C', default=0, type=float, help='subtractor for input values')
     parser.add_argument('--print',     '-p', action='store_true', help='print value for each line (in horizontal mode only)')
     parser.add_argument('--auto-linewidth', '-a', action='store_true', help='detecting terminal size to set line length automaticaly')
+    parser.add_argument('--auto-scale-cut', '-A', action='store_true', help='tuning scale and cut automaticaly')
+    parser.add_argument('--noupdate-colors', '-N', action='store_true', help='disabling color-table updating for scale-cut tuning')
 
     parser.add_argument('--header',      '-H', default='', type=str, help='print custom header')
     parser.add_argument('--colors', default='green', type=str, help='one color: green, red, blue, etc., multiple colors: green:0.3,yellow:0.6,red')
@@ -191,9 +195,21 @@ def parse_arguments():
 
     args.scale -= args.cut
 
-    args.colors = parse_colors(args.colors, args.scale, args.cut)
+    update_colors(args)
 
     return args
+
+min_value = math.inf
+max_value = -math.inf
+def update_scale_cut(args, values):
+    global min_value, max_value
+
+    for v in values:
+        min_value = min(min_value, v)
+        max_value = max(max_value, v)
+
+    args.cut = min_value
+    args.scale = max_value - args.cut
 
 def process_cycle(args):
     old_values = None
@@ -207,13 +223,18 @@ def process_cycle(args):
             calculate_size(args)
             old_size = current_size
 
-        values = get_values(args.linecount, args.scale, args.cut)
-        originals = [v * args.scale + args.cut for v in values]
+        originals = get_values(args.linecount)
+        if args.auto_scale_cut:
+            update_scale_cut(args, originals)
+            if not args.noupdate_colors:
+                update_colors(args)
+
+        values = scale_values(originals, args.scale, args.cut)
         if old_values is None: old_values = values
 
         # TODO: allow to set smoothness with argument
         values = smooth_values(values, old_values, 0.5)
-        lines = makelines(values, args.maxlength, args.mode, args.colors)
+        lines = makelines(values, args.maxlength, args.mode, args.pcolors)
         drawlines(lines, args.mode, args.linewidth, args.sepwidth, originals, args.print, args.cheader)
 
         old_values = values
@@ -225,6 +246,13 @@ def init():
 def exit():
     os.system('setterm -cursor on')
 
+# TODO:
+# - automize linewidth selection
+# - add custom titles for every line
+# - allow to write values direct on line
+# - add color-modes:
+#   - sections (current mode)
+#   - full (line will fully colored, depend on value)
 def wrap(init, work, exit):
     init()
     try:
