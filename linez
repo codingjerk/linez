@@ -137,14 +137,14 @@ def smooth_values(values1, values2, k):
     return [v1 * k + v2 * (1 - k) for v1, v2 in zip(values1, values2)]
 
 def update_colors(args):
-    args.pcolors = []
+    args.ccolors = []
     for color in args.colors.split(','):
         if ':' not in color:
-            args.pcolors.append((color, 1.0))
+            args.ccolors.append((color, 1.0))
         else:
             [color, value] = color.split(':')
             value = (float(value) - args.cut) / args.scale
-            args.pcolors.append((color, value))
+            args.ccolors.append((color, value))
 
 def centrate(text, width):
     center = width // 2
@@ -160,12 +160,12 @@ def get_terminal_size():
 
 def calculate_size(args):
     twidth, theight = get_terminal_size()
-    if args.auto_linewidth and args.mode == 'h':
+    if args.auto_linelength and args.mode == 'h':
         args.maxlength = twidth
         if args.print:
             args.maxlength -= 7
 
-    if args.auto_linewidth and args.mode == 'v':
+    if args.auto_linelength and args.mode == 'v':
         args.maxlength = theight
 
     args.cheader = ''
@@ -182,9 +182,11 @@ def parse_arguments():
     parser.add_argument('--scale',     '-s', default=1, type=float, help='divider for input values')
     parser.add_argument('--cut',       '-C', default=0, type=float, help='subtractor for input values')
     parser.add_argument('--print',     '-p', action='store_true', help='print value for each line (in horizontal mode only)')
-    parser.add_argument('--auto-linewidth', '-a', action='store_true', help='detecting terminal size to set line length automaticaly')
+
+    parser.add_argument('--auto-linelength', '-a', action='store_true', help='detecting terminal size to set line length automaticaly')
     parser.add_argument('--auto-scale-cut', '-A', action='store_true', help='tuning scale and cut automaticaly')
     parser.add_argument('--noupdate-colors', '-N', action='store_true', help='disabling color-table updating for scale-cut tuning')
+    parser.add_argument('--auto-linewidth', action='store_true', help='detecting terminal size to set line width automaticaly')
 
     parser.add_argument('--header',      '-H', default='', type=str, help='print custom header')
     parser.add_argument('--colors', default='green', type=str, help='one color: green, red, blue, etc., multiple colors: green:0.3,yellow:0.6,red')
@@ -211,6 +213,15 @@ def update_scale_cut(args, values):
     args.cut = min_value
     args.scale = max_value - args.cut
 
+def update_linewidth(args):
+    w, h = get_terminal_size()
+
+    if args.mode == 'h':
+        header_size = len(args.cheader.split('\n'))
+        separators = args.linecount * args.sepwidth
+        free_space = h - header_size - separators
+        args.linewidth = free_space // args.linecount
+
 def process_cycle(args):
     old_values = None
     old_size = get_terminal_size()
@@ -223,6 +234,9 @@ def process_cycle(args):
             calculate_size(args)
             old_size = current_size
 
+            if args.auto_linewidth:
+                update_linewidth(args)
+
         originals = get_values(args.linecount)
         if args.auto_scale_cut:
             update_scale_cut(args, originals)
@@ -234,7 +248,7 @@ def process_cycle(args):
 
         # TODO: allow to set smoothness with argument
         values = smooth_values(values, old_values, 0.5)
-        lines = makelines(values, args.maxlength, args.mode, args.pcolors)
+        lines = makelines(values, args.maxlength, args.mode, args.ccolors)
         drawlines(lines, args.mode, args.linewidth, args.sepwidth, originals, args.print, args.cheader)
 
         old_values = values
@@ -247,7 +261,6 @@ def exit():
     os.system('setterm -cursor on')
 
 # TODO:
-# - automize linewidth selection
 # - add custom titles for every line
 # - allow to write values direct on line
 # - add color-modes:
