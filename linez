@@ -27,7 +27,7 @@ def line(percentage, maxlength, mode):
 
     raise Exception()
 
-def colorize(line, mode, colors):
+def colorize(line, mode, colors, colormode):
     color_codes = {
         'black'   : '\033[0;%dm' % 30,
         'red'     : '\033[0;%dm' % 31,
@@ -55,7 +55,7 @@ def colorize(line, mode, colors):
     iterated = enumerate(line if mode == 'h' else reversed(line))
     for i, c in iterated:
         char = []
-        p = i / len(line)
+        p = i / len(line) if colormode == 'sections' else len(line.strip()) / len(line)
         for pair in colors:
             color, value = pair
             if p < value:
@@ -69,9 +69,9 @@ def colorize(line, mode, colors):
 
     return result if mode == 'h' else list(reversed(result))
 
-def makeline(percentage, maxlength, mode, colors):
+def makeline(percentage, maxlength, mode, colors, colormode):
     l = line(percentage, maxlength, mode)
-    c = colorize(l, mode, colors)
+    c = colorize(l, mode, colors, colormode)
 
     return c
 
@@ -130,8 +130,8 @@ def get_values(linecount):
 def scale_values(values, scale, cut):
     return [(v - cut) / scale for v in values]
 
-def makelines(values, maxlength, mode, colors):
-    return [makeline(value, maxlength, mode, colors) for value in values]
+def makelines(values, maxlength, mode, colors, colormode):
+    return [makeline(value, maxlength, mode, colors, colormode) for value in values]
 
 def smooth_values(values1, values2, k):
     return [v1 * k + v2 * (1 - k) for v1, v2 in zip(values1, values2)]
@@ -190,6 +190,7 @@ def parse_arguments():
 
     parser.add_argument('--header',      '-H', default='', type=str, help='print custom header')
     parser.add_argument('--colors', default='green', type=str, help='one color: green, red, blue, etc., multiple colors: green:0.3,yellow:0.6,red')
+    parser.add_argument('--colormode', default='sections', type=str, help='sections for multicolored lines and full for fully colored')
 
     args = parser.parse_args()
 
@@ -198,6 +199,8 @@ def parse_arguments():
     args.scale -= args.cut
 
     update_colors(args)
+    if args.auto_linewidth:
+        update_linewidth(args)
 
     return args
 
@@ -248,7 +251,7 @@ def process_cycle(args):
 
         # TODO: allow to set smoothness with argument
         values = smooth_values(values, old_values, 0.5)
-        lines = makelines(values, args.maxlength, args.mode, args.ccolors)
+        lines = makelines(values, args.maxlength, args.mode, args.ccolors, args.colormode)
         drawlines(lines, args.mode, args.linewidth, args.sepwidth, originals, args.print, args.cheader)
 
         old_values = values
@@ -263,9 +266,6 @@ def exit():
 # TODO:
 # - add custom titles for every line
 # - allow to write values direct on line
-# - add color-modes:
-#   - sections (current mode)
-#   - full (line will fully colored, depend on value)
 def wrap(init, work, exit):
     init()
     try:
