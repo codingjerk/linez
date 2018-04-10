@@ -192,6 +192,8 @@ def parse_arguments():
     parser.add_argument('--colors', default='green', type=str, help='one color: green, red, blue, etc., multiple colors: green:0.3,yellow:0.6,red')
     parser.add_argument('--colormode', default='sections', type=str, help='sections for multicolored lines and full for fully colored')
 
+    parser.add_argument('--smoothness', '-S', default=0.5, type=float, help='from 0 to 1, controls how values must depend on old ones')
+
     args = parser.parse_args()
 
     calculate_size(args)
@@ -249,8 +251,7 @@ def process_cycle(args):
         values = scale_values(originals, args.scale, args.cut)
         if old_values is None: old_values = values
 
-        # TODO: allow to set smoothness with argument
-        values = smooth_values(values, old_values, 0.5)
+        values = smooth_values(values, old_values, args.smoothness)
         lines = makelines(values, args.maxlength, args.mode, args.ccolors, args.colormode)
         drawlines(lines, args.mode, args.linewidth, args.sepwidth, originals, args.print, args.cheader)
 
@@ -263,9 +264,6 @@ def init():
 def exit():
     os.system('setterm -cursor on')
 
-# TODO:
-# - add custom titles for every line
-# - allow to write values direct on line
 def wrap(init, work, exit):
     init()
     try:
