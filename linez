@@ -259,10 +259,13 @@ def process_cycle(args):
 
 def init():
     os.system('setterm -cursor off')
+    os.system('setterm -blank 0')
     os.system('clear')
 
 def exit():
+    os.system('clear')
     os.system('setterm -cursor on')
+    os.system('setterm -blank 10')
 
 def wrap(init, work, exit):
     init()
@@ -275,6 +278,7 @@ def wrap(init, work, exit):
     
     exit()
 
+# TODO: add cusmot titles for each line
 def main():
     args = parse_arguments()
     wrap(init, lambda: process_cycle(args), exit)
