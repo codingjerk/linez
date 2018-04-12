@@ -249,6 +249,7 @@ def process_cycle(args):
                 update_colors(args)
 
         values = scale_values(originals, args.scale, args.cut)
+        # TODO: update only if needed
         if old_values is None: old_values = values
 
         values = smooth_values(values, old_values, args.smoothness)
@@ -279,6 +280,7 @@ def wrap(init, work, exit):
     exit()
 
 # TODO: add cusmot titles for each line
+# TODO: add continious mode
 def main():
     args = parse_arguments()
     wrap(init, lambda: process_cycle(args), exit)
