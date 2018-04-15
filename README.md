@@ -15,7 +15,7 @@ Output will be similar to this:
 ![Imgur](http://i.imgur.com/fFz5iXD.png)
 
 or this:
-![Imgur](http://i.imgur.com/RX5qBAW.png)
+![Imgur](http://i.imgur.com/Mb2e6Wx.png)
 
 ## Example scripts
 
