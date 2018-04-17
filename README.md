@@ -12,9 +12,11 @@ $ ./yourscript.sh | linez OPTIONS
 ```
 
 Output will be similar to this:
+
 ![Imgur](http://i.imgur.com/fFz5iXD.png)
 
 or this:
+
 ![Imgur](http://i.imgur.com/Mb2e6Wx.png)
 
 ## Example scripts
