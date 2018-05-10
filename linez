@@ -286,6 +286,14 @@ def wrap(init, work, exit):
 # TODO: add cusmot titles for each line
 # TODO: add continious mode
 # TODO: center --print values on lines (for linewidths >= 3)
+# TODO: colorize --print values with line color?
+# TODO: add sections, secseparators and headers (+colors, scales and cuts), for each section. This can be used to display multiple data (cpu usage, cpu temp, free memory)
+# TODO: use current (not smoothed) values to colorize lines
+# TODO: fix simcolor bug for full mode
+# TODO: add side paddings (for h) and up-down padding (for v)
+# TODO: add averaging mode (average last N values)
+# TODO: keep fps even if linez dont get data
+# TODO: add one-iteration mode for using in status bars (like i3bar)
 def main():
     args = parse_arguments()
     wrap(init, lambda: process_cycle(args), exit)
