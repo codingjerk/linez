@@ -27,41 +27,49 @@ def line(percentage, maxlength, mode):
 
     raise Exception()
 
+# TODO: move to colors module (or use default solutions)
+color_codes = {
+    'black'   : '\033[0;%dm' % 30,
+    'red'     : '\033[0;%dm' % 31,
+    'green'   : '\033[0;%dm' % 32,
+    'yellow'  : '\033[0;%dm' % 33,
+    'blue'    : '\033[0;%dm' % 34,
+    'magenta' : '\033[0;%dm' % 35,
+    'cyan'    : '\033[0;%dm' % 36,
+    'lgray'   : '\033[0;%dm' % 37,
+    'default' : '\033[0;%dm' % 39,
+
+    'dgray'   : '\033[0;%dm' % 90,
+    'lred'    : '\033[0;%dm' % 91,
+    'lgreen'  : '\033[0;%dm' % 92,
+    'lyellow' : '\033[0;%dm' % 93,
+    'lblue'   : '\033[0;%dm' % 94,
+    'lmagenta': '\033[0;%dm' % 95,
+    'lcyan'   : '\033[0;%dm' % 96,
+    'white'   : '\033[0;%dm' % 97,
+}
+
+reset_color = '\033[0m'
+
+def get_color_for_value(value, colors):
+    for pair in colors:
+        color, threshold = pair
+        if value < threshold:
+            return color_codes[color]
+    
+
+def colorize_value(value, original, colors):
+    color = get_color_for_value(value, colors)
+    return color, original, reset_color
+
 def colorize(line, mode, colors, colormode):
-    color_codes = {
-        'black'   : '\033[0;%dm' % 30,
-        'red'     : '\033[0;%dm' % 31,
-        'green'   : '\033[0;%dm' % 32,
-        'yellow'  : '\033[0;%dm' % 33,
-        'blue'    : '\033[0;%dm' % 34,
-        'magenta' : '\033[0;%dm' % 35,
-        'cyan'    : '\033[0;%dm' % 36,
-        'lgray'   : '\033[0;%dm' % 37,
-        'default' : '\033[0;%dm' % 39,
-
-        'dgray'   : '\033[0;%dm' % 90,
-        'lred'    : '\033[0;%dm' % 91,
-        'lgreen'  : '\033[0;%dm' % 92,
-        'lyellow' : '\033[0;%dm' % 93,
-        'lblue'   : '\033[0;%dm' % 94,
-        'lmagenta': '\033[0;%dm' % 95,
-        'lcyan'   : '\033[0;%dm' % 96,
-        'white'   : '\033[0;%dm' % 97,
-    }
-
-    reset_color = '\033[0m'
-
     result = []
     iterated = enumerate(line if mode == 'h' else reversed(line))
     for i, c in iterated:
         char = []
         p = i / len(line) if colormode == 'sections' else len(line.strip()) / len(line)
-        for pair in colors:
-            color, value = pair
-            if p < value:
-                char.append(color_codes[color])
-                break
 
+        char.append(get_color_for_value(p, colors))
         char.append(c)
         char.append(reset_color)
 
@@ -75,18 +83,24 @@ def makeline(percentage, maxlength, mode, colors, colormode):
 
     return c
 
-def drawlines(lines, mode, linewidth, sepwidth, values, print_values, header):
+# TODO: split to 2 functions for 2 modes
+def drawlines(lines, mode, linewidth, sepwidth, values, originals, print_values, header, colors, colorize_values):
     if len(lines) == 0: return
     
     if mode == 'h':
         text = header + '\n' * (sepwidth)
         rows = []
-        for i, line in enumerate(lines):
+        print_index = math.trunc(linewidth / 2) # rounding down
+
+        for (i, line), value, original in zip(enumerate(lines), values, originals):
             row = ''
             for _ in range(linewidth):
                 if print_values:
-                    if _ == 0:
-                        row += '%6.1f ' % values[i]
+                    if _ == print_index:
+                        if colorize_values:
+                            row += '%s%6.1f%s ' % colorize_value(value, original, colors)
+                        else:
+                            row += '%6.1f ' % original
                     else:
                         row += ' ' * 7
 
@@ -194,6 +208,8 @@ def parse_arguments():
 
     parser.add_argument('--smoothness', '-S', default=0.5, type=float, help='from 0 to 1, controls how values must depend on old ones')
 
+    parser.add_argument('--colorize-values', action='store_true', help='print values with line color')
+
     args = parser.parse_args()
 
     calculate_size(args)
@@ -258,7 +274,8 @@ def process_cycle(args):
 
         values = smooth_values(values, old_values, args.smoothness)
         lines = makelines(values, args.maxlength, args.mode, args.ccolors, args.colormode)
-        drawlines(lines, args.mode, args.linewidth, args.sepwidth, originals, args.print, args.cheader)
+        # TODO: ??? maybe send args/settings object instead of 100500 arguments ???
+        drawlines(lines, args.mode, args.linewidth, args.sepwidth, values, originals, args.print, args.cheader, args.ccolors, args.colorize_values)
 
         old_values = values
 
@@ -276,17 +293,15 @@ def wrap(init, work, exit):
     init()
     try:
         work()
-    except (ValueError, KeyboardInterrupt):
+    except KeyboardInterrupt:
         pass
-    except Exception as e:
-        print(e)
     
     exit()
 
+# TODO: use massive refactring gun to make this code pretty
+
 # TODO: add cusmot titles for each line
 # TODO: add continious mode
-# TODO: center --print values on lines (for linewidths >= 3)
-# TODO: colorize --print values with line color?
 # TODO: add sections, secseparators and headers (+colors, scales and cuts), for each section. This can be used to display multiple data (cpu usage, cpu temp, free memory)
 # TODO: use current (not smoothed) values to colorize lines
 # TODO: fix simcolor bug for full mode
