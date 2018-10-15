@@ -83,7 +83,7 @@ def makeline(percentage, maxlength, mode, colors, colormode):
     return c
 
 # TODO: split to 2 functions for 2 modes
-def drawlines(lines, mode, linewidth, sepwidth, values, originals, print_values, header, colors, colorize_values):
+def drawlines(lines, mode, linewidth, sepwidth, values, originals, print_values, header, colors, colorize_values, titles):
     if len(lines) == 0: return
     
     if mode == 'h':
@@ -91,9 +91,19 @@ def drawlines(lines, mode, linewidth, sepwidth, values, originals, print_values,
         rows = []
         print_index = math.trunc(linewidth / 2) # rounding down
 
-        for (i, line), value, original in zip(enumerate(lines), values, originals):
+        # TODO: move to separate function
+        for (i, line), value, original, title in zip(enumerate(lines), values, originals, titles):
             row = ''
             for _ in range(linewidth):
+                if len(title) > 0:
+                    if _ == print_index:
+                        if colorize_values:
+                            row += '%s%s%s' % colorize_value(value, title, colors)
+                        else:
+                            row += '%s' % title
+                    else:
+                        row += ' ' * (len(title))
+
                 if print_values:
                     if _ == print_index:
                         if colorize_values:
@@ -174,9 +184,10 @@ def get_terminal_size():
 def calculate_size(args):
     twidth, theight = get_terminal_size()
     if args.auto_linelength and args.mode == 'h':
+        title_size = len(args.ctitles[0]) # TODO: calculate max title size
         args.maxlength = twidth
         if args.print:
-            args.maxlength -= 7
+            args.maxlength -= 7 + title_size
 
     if args.auto_linelength and args.mode == 'v':
         args.maxlength = theight
@@ -208,8 +219,14 @@ def parse_arguments():
     parser.add_argument('--smoothness', '-S', default=0.5, type=float, help='from 0 to 1, controls how values must depend on old ones')
 
     parser.add_argument('--colorize-values', action='store_true', help='print values with line color')
+    parser.add_argument('--titles', default='', type=str, help='individual title for each line, separated by comma ","')
 
     args = parser.parse_args()
+
+    args.ctitles = args.titles.split(',')
+    if len(args.ctitles) != args.linecount:
+        args.ctitles = [''] * args.linecount
+    # TODO: show error if not every title specified (except of no titles)
 
     calculate_size(args)
 
@@ -218,6 +235,7 @@ def parse_arguments():
     update_colors(args)
     if args.auto_linewidth:
         update_linewidth(args)
+
 
     return args
 
@@ -274,7 +292,7 @@ def process_cycle(args):
         values = smooth_values(values, old_values, args.smoothness)
         lines = makelines(values, args.maxlength, args.mode, args.ccolors, args.colormode)
         # TODO: ??? maybe send args/settings object instead of 100500 arguments ???
-        drawlines(lines, args.mode, args.linewidth, args.sepwidth, values, originals, args.print, args.cheader, args.ccolors, args.colorize_values)
+        drawlines(lines, args.mode, args.linewidth, args.sepwidth, values, originals, args.print, args.cheader, args.ccolors, args.colorize_values, args.ctitles)
 
         old_values = values
 
@@ -299,8 +317,7 @@ def wrap(init, work, exit):
 
 # TODO: use massive refactring gun to make this code pretty
 
-# TODO: add cusmot titles for each line
-# TODO: add continious mode
+# TODO: add continious mode ???
 # TODO: add sections, secseparators and headers (+colors, scales and cuts), for each section. This can be used to display multiple data (cpu usage, cpu temp, free memory)
 # TODO: add side paddings (for h) and up-down padding (for v)
 # TODO: add averaging mode (average last N values)
