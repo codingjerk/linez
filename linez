@@ -221,6 +221,8 @@ def parse_arguments():
     parser.add_argument('--colorize-values', action='store_true', help='print values with line color')
     parser.add_argument('--titles', default='', type=str, help='individual title for each line, separated by comma ","')
 
+    parser.add_argument('--side-padding', default=1, type=int, help='paddings added to left and right side (horizontal mode) or top and bottom (vertical mode)')
+
     args = parser.parse_args()
 
     args.ctitles = args.titles.split(',')
@@ -323,6 +325,8 @@ def wrap(init, work, exit):
 # TODO: add averaging mode (average last N values)
 # TODO: keep fps even if linez dont get data
 # TODO: add one-iteration mode for using in status bars (like i3bar)
+# TODO: use better default arguments
+# TODO: fix wrong right-side padding (in vertical mode)
 def main():
     args = parse_arguments()
     wrap(init, lambda: process_cycle(args), exit)
